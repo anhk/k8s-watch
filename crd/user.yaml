@@ -1,0 +1,23 @@
+apiVersion: "apiextensions.k8s.io/v1"
+kind: "CustomResourceDefinition"
+metadata:
+  name: "users.ir0.cn"
+spec:
+  group: "ir0.cn"
+  version: "v1"
+  scope: "Namespaced"
+  names:
+    plural: "users"
+    singular: "user"
+    kind: "User"
+    listKind: "UserList"
+  validation:
+    openAPIV3Schema:
+      required: ["spec"]
+      properties:
+        spec:
+          required: ["name"]
+          properties:
+            name:
+              type: "string"
+              description: "User Name"

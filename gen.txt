@@ -1,0 +1,6 @@
+#!/bin/bash
+# defaulter-gen,client-gen,lister-gen,informer-gen,deepcopy-gen
+GOPROXY=goproxy.cn,direct go get k8s.io/code-generator/cmd/deepcopy-gen
+GOPROXY=goproxy.cn,direct go install k8s.io/code-generator/cmd/deepcopy-gen@latest
+
+deepcopy-gen -h boilerplate.go.txt --input-dirs ./v1 -o . -O zz_generated_deepcopy
