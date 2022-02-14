@@ -4,20 +4,24 @@ metadata:
   name: "users.ir0.cn"
 spec:
   group: "ir0.cn"
-  version: "v1"
+  versions:
+    - name: v1
+      served: true
+      storage: true
+      schema:
+        openAPIV3Schema:
+          type: object
+          properties:
+            spec:
+              type: object
+              required: ["name"]
+              properties:
+                name:
+                  type: "string"
+                  description: "User Name"
   scope: "Namespaced"
   names:
     plural: "users"
     singular: "user"
     kind: "User"
     listKind: "UserList"
-  validation:
-    openAPIV3Schema:
-      required: ["spec"]
-      properties:
-        spec:
-          required: ["name"]
-          properties:
-            name:
-              type: "string"
-              description: "User Name"

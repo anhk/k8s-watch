@@ -3,40 +3,75 @@ package main
 import (
 	"fmt"
 	v1 "k8s-watch/v1"
-	"k8s.io/apimachinery/pkg/fields"
-	"k8s.io/client-go/kubernetes"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/util/json"
+	"k8s.io/client-go/dynamic"
+	"k8s.io/client-go/dynamic/dynamicinformer"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/clientcmd"
-	"time"
+	"k8s.io/client-go/util/homedir"
+	"path/filepath"
 )
 
+var CfgPath string
+
 func main() {
-	cfg, err := clientcmd.BuildConfigFromFlags("", "/root/.kube/config")
+	if home := homedir.HomeDir(); home != "" {
+		CfgPath = filepath.Join(home, ".kube", "config")
+	} else {
+		CfgPath = "/root/.kube/config"
+	}
+
+	watchLoop()
+}
+
+func toUser(obj interface{}) (*v1.User, error) {
+	data, err := json.Marshal(obj)
+	if err != nil {
+		return nil, err
+	}
+	u := &v1.User{}
+
+	err = json.Unmarshal(data, u)
+	return u, err
+}
+
+func startWatching(stopCh <-chan struct{}, s cache.SharedIndexInformer) {
+	handlers := cache.ResourceEventHandlerFuncs{
+		AddFunc: func(obj interface{}) {
+			u, _ := toUser(obj)
+			fmt.Printf("ADD: %s %s %s\n", u.Namespace, u.Name, u.Spec)
+		},
+		UpdateFunc: func(oldObj, obj interface{}) {
+			oldUser, _ := toUser(oldObj)
+			u, _ := toUser(obj)
+			fmt.Printf("MOD: %s %s %s  =>  %s %s %s\n",
+				oldUser.Namespace, oldUser.Name, oldUser.Spec, u.Namespace, u.Name, u.Spec)
+		},
+		DeleteFunc: func(obj interface{}) {
+			u, _ := toUser(obj)
+			fmt.Printf("DEL: %s %s %s\n", u.Namespace, u.Name, u.Spec)
+		},
+	}
+	s.AddEventHandler(handlers)
+	s.Run(stopCh)
+}
+
+func watchLoop() {
+	cfg, err := clientcmd.BuildConfigFromFlags("", CfgPath)
 	if err != nil {
 		panic(err)
 	}
-
-	clientSet, err := kubernetes.NewForConfig(cfg)
+	client, err := dynamic.NewForConfig(cfg)
 	if err != nil {
 		panic(err)
 	}
+	f := dynamicinformer.NewFilteredDynamicSharedInformerFactory(client,
+		0, "", nil)
+	i := f.ForResource(schema.GroupVersionResource{
+		Group:    "ir0.cn",
+		Version:  "v1",
+		Resource: "users"})
 
-	watchList := cache.NewListWatchFromClient(clientSet.CoreV1().RESTClient(),
-		"users",
-		"skywing",
-		fields.Everything())
-
-	_, controller := cache.NewInformer(watchList, &v1.User{}, time.Second*0,
-		cache.ResourceEventHandlerFuncs{
-			AddFunc: func(obj interface{}) {
-				fmt.Printf("add User: %s", obj)
-			},
-			UpdateFunc: func(oldObj, newObj interface{}) {
-				fmt.Printf("update User from [%s] to [%s]", oldObj, newObj)
-			},
-			DeleteFunc: func(obj interface{}) {
-				fmt.Printf("delete User: %s", obj)
-			},
-		})
-	controller.Run(make(chan struct{}))
+	startWatching(make(chan struct{}), i.Informer())
 }

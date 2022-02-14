@@ -1,0 +1,6 @@
+apiVersion: "ir0.cn/v1"
+kind: User
+metadata:
+  name: user-tom
+spec:
+  name: 'Tom-V2'
